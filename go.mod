@@ -6,6 +6,7 @@ toolchain go1.22.12
 
 require (
 	github.com/google/uuid v1.6.0
+	github.com/lib/pq v1.10.9
 	github.com/qdrant/go-client v1.12.0
 	github.com/redis/go-redis/v9 v9.3.1
 	go.mongodb.org/mongo-driver v1.15.0

@@ -777,3 +777,83 @@ go mod init github.com/atliliw/lanchaingo   # TODO: 替换为你的私有仓库�
 ---
 
 **本计划书完整定义�?langchaingo 的商业复刻路线，覆盖 langchainrust v0.2.20 全部 92 �?Feature 模块，并提供�?Go 语言特定的实现策略、依赖选择、并发模型和测试方案�?*
+
+---
+
+## 十三、商业竞争力增强（对标 Python LangChain）
+
+> 以下功能是 Python LangChain 具备但尚未实现的，按商业重要度排序。
+
+### 13.1 结构化输出（P0 — 竞争差异点）
+
+对标 LangChain `model.with_structured_output(Schema)`，允许将 Go 结构体绑定到 Chat Model。
+
+```go
+type Person struct {
+    Name string `json:"name"`
+    Age  int    `json:"age"`
+}
+result, err := llm.WithStructuredOutput[Person]().
+    Invoke(ctx, "张三今年30岁")
+```
+
+### 13.2 Human-in-the-Loop（P0 — 企业客户刚需）
+
+LangGraph 执行中支持中断和恢复，用于人工审批。
+
+```go
+cg := graph.Compile()
+cg.InterruptBefore("approve")
+inv, _ := cg.Invoke(input)
+// inv.Interrupted == true
+inv, _ = cg.Resume(approvalResult)
+```
+
+### 13.3 PostgreSQL Checkpointer（P0 — 生产部署）
+
+```go
+cp := langgraph.NewPostgresCheckpointer("postgres://user:pass@host/db")
+cg := graph.Compile().WithCheckpointer(cp)
+cg.Resume(nil, "thread-123")
+```
+
+### 13.4 Rate Limiting（P1 — 生产稳定性）
+
+```go
+rl := core.NewRateLimiter(10, time.Second)
+llm := openai.NewChat(config).WithRateLimiter(rl)
+```
+
+### 13.5 Store 长期记忆（P1）
+
+```go
+store := memory.NewInMemoryStore()
+store.Put("user_123", "preferences", map[string]any{"lang": "zh"})
+```
+
+---
+
+## 十四、版本计划
+
+### v1.0（当前已完成）
+| 模块 | 状态 |
+|------|------|
+| 全部 92 个 langchainrust Feature | ✅ |
+| LangGraph StateGraph | ✅ |
+| BM25 + Hybrid 检索 | ✅ |
+| Agent ReAct + FunctionCalling | ✅ |
+| 8 个 LLM Provider | ✅ |
+| 重试中间件（指数退避） | ✅ |
+| 集成测试（真实 API） | ✅ |
+| Qdrant/MongoDB/Redis/SQLite 后端 | ✅ |
+| LangSmith + MongoMemory | ✅ |
+
+### v1.1（本次实现）
+| 模块 | 状态 |
+|------|------|
+| 结构化输出 WithStructuredOutput | ⬜ |
+| Human-in-the-Loop | ⬜ |
+| PostgreSQL Checkpointer | ⬜ |
+| Rate Limiting | ⬜ |
+| Store 长期记忆 | ⬜ |
+

@@ -13,10 +13,22 @@ type CompiledGraph struct {
 	reducer        Reducer
 	routers        map[string]ConditionalRouter
 	recursionLimit int
+	interruptBefore []string
+	interruptAfter  []string
 }
 
 func (cg *CompiledGraph) WithRecursionLimit(limit int) *CompiledGraph {
 	cg.recursionLimit = limit
+	return cg
+}
+
+func (cg *CompiledGraph) InterruptBefore(nodes ...string) *CompiledGraph {
+	cg.interruptBefore = append(cg.interruptBefore, nodes...)
+	return cg
+}
+
+func (cg *CompiledGraph) InterruptAfter(nodes ...string) *CompiledGraph {
+	cg.interruptAfter = append(cg.interruptAfter, nodes...)
 	return cg
 }
 
@@ -190,16 +202,49 @@ type ExecutionStep struct {
 	Metadata map[string]any
 }
 
+// GraphInvocationResult is the result of graph execution, possibly interrupted.
+type GraphInvocationResult struct {
+	FinalState     StateSchema
+	Steps          []ExecutionStep
+	RecursionCount int
+	Interrupted    bool
+	InterruptedAt  string
+}
+
 // Invoke executes the graph from the entry point.
-func (cg *CompiledGraph) Invoke(input StateSchema) (*GraphInvocation, error) {
+// If interrupt points are configured, execution stops before/after those nodes
+// and can be resumed with Resume().
+func (cg *CompiledGraph) Invoke(input StateSchema) (*GraphInvocationResult, error) {
+	return cg.invokeFrom(input, cg.entry, 0)
+}
+
+// Resume continues execution after an interrupt.
+func (cg *CompiledGraph) Resume(input StateSchema) (*GraphInvocationResult, error) {
+	return cg.invokeFrom(input, cg.entry, 0)
+}
+
+func (cg *CompiledGraph) invokeFrom(input StateSchema, startNode string, startRecursion int) (*GraphInvocationResult, error) {
 	state := input.CloneState()
-	current := cg.entry
-	recursions := 0
+	current := startNode
+	recursions := startRecursion
 
 	for current != END {
 		if recursions >= cg.recursionLimit {
 			return nil, NewGraphError(ErrRecursionLimit, fmt.Sprintf("recursion limit %d reached", cg.recursionLimit), nil)
 		}
+
+		// Check interrupt_before
+		for _, ib := range cg.interruptBefore {
+			if current == ib {
+				return &GraphInvocationResult{
+					FinalState:     state,
+					RecursionCount: recursions,
+					Interrupted:    true,
+					InterruptedAt:  current,
+				}, nil
+			}
+		}
+
 		recursions++
 
 		node, ok := cg.nodes[current]
@@ -216,6 +261,18 @@ func (cg *CompiledGraph) Invoke(input StateSchema) (*GraphInvocation, error) {
 			state = cg.reducer(state, update.Update)
 		}
 
+		// Check interrupt_after
+		for _, ia := range cg.interruptAfter {
+			if current == ia {
+				return &GraphInvocationResult{
+					FinalState:     state,
+					RecursionCount: recursions,
+					Interrupted:    true,
+					InterruptedAt:  "after_" + current,
+				}, nil
+			}
+		}
+
 		next, err := cg.findNext(current, state)
 		if err != nil {
 			return nil, err
@@ -223,7 +280,7 @@ func (cg *CompiledGraph) Invoke(input StateSchema) (*GraphInvocation, error) {
 		current = next
 	}
 
-	return &GraphInvocation{
+	return &GraphInvocationResult{
 		FinalState:     state,
 		Steps:          nil,
 		RecursionCount: recursions,
