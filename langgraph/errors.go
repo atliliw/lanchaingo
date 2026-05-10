@@ -1,0 +1,40 @@
+package langgraph
+
+import "fmt"
+
+// GraphError represents errors in graph operations.
+type GraphError struct {
+	Kind    GraphErrorKind
+	Message string
+	Cause   error
+}
+
+type GraphErrorKind int
+
+const (
+	ErrValidation      GraphErrorKind = iota
+	ErrExecution
+	ErrRouting
+	ErrRecursionLimit
+	ErrNode
+	ErrCheckpoint
+	ErrState
+	ErrInterrupted
+	ErrResume
+	ErrInfiniteCycle
+	ErrOrphanNode
+	ErrDuplicateEdge
+)
+
+func (e *GraphError) Error() string {
+	if e.Cause != nil {
+		return fmt.Sprintf("graph: %s: %v", e.Message, e.Cause)
+	}
+	return fmt.Sprintf("graph: %s", e.Message)
+}
+
+func (e *GraphError) Unwrap() error { return e.Cause }
+
+func NewGraphError(kind GraphErrorKind, msg string, cause error) *GraphError {
+	return &GraphError{Kind: kind, Message: msg, Cause: cause}
+}
