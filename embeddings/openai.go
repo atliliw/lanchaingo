@@ -2,11 +2,14 @@ package embeddings
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"sort"
+
+	"github.com/atliliw/lanchaingo/core"
 )
 
 type openAIEmbedReq struct {
@@ -74,8 +77,11 @@ func NewOpenAIEmbeddings(config OpenAIEmbeddingsConfig) *OpenAIEmbeddings {
 }
 
 // embed 鍙戦€佸祵鍏ヨ姹傚苟杩斿洖鎵€鏈夊祵鍏ュ悜閲?// input 鍙互鏄?string锛堝崟涓枃鏈級鎴?[]string锛堟壒閲忔枃鏈級
-// embed sends embedding request and returns all embedding data
-func (e *OpenAIEmbeddings) embed(input any) ([]openAIEmbedData, error) {
+// embed sends embedding request and returns all embedding data with retry
+func (e *OpenAIEmbeddings) embed(ctx context.Context, input any) ([]openAIEmbedData, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	url := e.config.BaseURL + "/embeddings"
 	reqBody := openAIEmbedReq{Model: e.config.Model, Input: input}
 	data, err := json.Marshal(reqBody)
@@ -83,41 +89,40 @@ func (e *OpenAIEmbeddings) embed(input any) ([]openAIEmbedData, error) {
 		return nil, NewEmbeddingError(ErrParse, "marshal request", err)
 	}
 
-	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(data))
-	if err != nil {
-		return nil, NewEmbeddingError(ErrHTTP, "create request", err)
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+e.config.APIKey)
-	httpReq.Header.Set("Content-Type", "application/json")
+	retryCfg := core.DefaultRetryConfig()
+	result, err := core.DoWithRetry(ctx, retryCfg, func(ctx context.Context) ([]openAIEmbedData, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(data))
+		if err != nil { return nil, NewEmbeddingError(ErrHTTP, "create request", err) }
+		httpReq.Header.Set("Authorization", "Bearer "+e.config.APIKey)
+		httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(httpReq)
-	if err != nil {
-		return nil, NewEmbeddingError(ErrHTTP, "request failed", err)
-	}
-	defer resp.Body.Close()
+		resp, err := e.client.Do(httpReq)
+		if err != nil { return nil, NewEmbeddingError(ErrHTTP, "request failed", err) }
+		defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, NewEmbeddingError(ErrAPI, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(body)), nil)
-	}
+		if resp.StatusCode != 200 {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, NewEmbeddingError(ErrAPI, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(body)), nil)
+		}
 
-	var embedResp openAIEmbedResp
-	if err := json.NewDecoder(resp.Body).Decode(&embedResp); err != nil {
-		return nil, NewEmbeddingError(ErrParse, "decode response", err)
-	}
-
-	if len(embedResp.Data) == 0 {
-		return nil, NewEmbeddingError(ErrAPI, "empty response data", nil)
-	}
-
-	return embedResp.Data, nil
+		var embedResp openAIEmbedResp
+		if err := json.NewDecoder(resp.Body).Decode(&embedResp); err != nil {
+			return nil, NewEmbeddingError(ErrParse, "decode response", err)
+		}
+		if len(embedResp.Data) == 0 {
+			return nil, NewEmbeddingError(ErrAPI, "empty response data", nil)
+		}
+		return embedResp.Data, nil
+	})
+	if err != nil { return nil, err }
+	return result, nil
 }
 
 func (e *OpenAIEmbeddings) EmbedQuery(text string) ([]float32, error) {
 	if text == "" {
 		return nil, NewEmbeddingError(ErrEmptyInput, "empty input", nil)
 	}
-	data, err := e.embed(text)
+	data, err := e.embed(context.Background(), text)
 	if err != nil {
 		return nil, err
 	}
@@ -136,8 +141,7 @@ func (e *OpenAIEmbeddings) EmbedDocuments(texts []string) ([][]float32, error) {
 		return [][]float32{emb}, nil
 	}
 
-	// 鎵归噺璇锋眰锛岃繑鍥炵粨鏋滄寜 index 鎺掑簭
-	data, err := e.embed(texts)
+	data, err := e.embed(context.Background(), texts)
 	if err != nil {
 		return nil, err
 	}

@@ -98,7 +98,8 @@ func TestRAGPipeline(t *testing.T) {
 //
 // 娴嬭瘯鍦烘櫙锛?//  1. 鍏堢敤鍚戦噺妫€绱㈡壘鍒扮浉鍏虫枃妗?//  2. 灏嗘绱㈢粨鏋滀綔涓轰笂涓嬫枃杈撳叆 LLM
 //  3. LLM 鍩轰簬涓婁笅鏂囧洖绛旈棶棰?//
-// 杩欐槸鐢熶骇鐜涓?RAG 搴旂敤鐨勫畬鏁村舰鎬?func TestRAGWithQA(t *testing.T) {
+// 杩欐槸鐢熶骇鐜涓?RAG 搴旂敤鐨勫畬鏁村舰鎬?
+func TestRAGWithQA(t *testing.T) {
 	cfg := LoadConfig()
 	if !cfg.HasAPIKey() {
 		t.Skip("璺宠繃闆嗘垚娴嬭瘯锛氭湭閰嶇疆 API Key")

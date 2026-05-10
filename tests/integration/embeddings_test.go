@@ -50,7 +50,8 @@ func TestEmbedQuery(t *testing.T) {
 // 娴嬭瘯鎵归噺鏂囨。宓屽叆
 //
 // 娴嬭瘯鍦烘櫙锛氬悓鏃朵负澶氫釜鏂囨。鐢熸垚宓屽叆鍚戦噺
-// 楠岃瘉涓や釜鏂囨。杩斿洖鐨勫悜閲忕淮搴︿竴鑷?func TestEmbedDocuments(t *testing.T) {
+// 楠岃瘉涓や釜鏂囨。杩斿洖鐨勫悜閲忕淮搴︿竴鑷?
+func TestEmbedDocuments(t *testing.T) {
 	cfg := LoadConfig()
 	if !cfg.HasAPIKey() {
 		t.Skip("璺宠繃闆嗘垚娴嬭瘯锛氭湭閰嶇疆 API Key")

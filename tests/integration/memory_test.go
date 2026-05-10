@@ -20,7 +20,8 @@ import (
 //  2. 绗簩杞棶 AI "鎴戝彨浠€涔堝悕瀛楋紵"
 //  3. 楠岃瘉 AI 鑳借浣忎箣鍓嶇殑瀵硅瘽鍐呭
 //
-// 杩欐槸 LLM 搴旂敤涓渶鏍稿績鐨勮蹇嗗姛鑳芥祴璇?func TestConversationWithMemory(t *testing.T) {
+// 杩欐槸 LLM 搴旂敤涓渶鏍稿績鐨勮蹇嗗姛鑳芥祴璇?
+func TestConversationWithMemory(t *testing.T) {
 	cfg := LoadConfig()
 	if !cfg.HasAPIKey() {
 		t.Skip("璺宠繃闆嗘垚娴嬭瘯锛氭湭閰嶇疆 API Key")

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atliliw/lanchaingo/core"
 	lm "github.com/atliliw/lanchaingo/core/language_models"
 	"github.com/atliliw/lanchaingo/schema/messages"
 )
@@ -92,6 +93,8 @@ func (c *OpenAICompatChat) Chat(ctx context.Context, msgs []messages.Message) (*
 	if ctx == nil {
 		ctx = context.Background()
 	}
+
+	// 构造请求体（不重试的部分）
 	var oaiMsgs []oaiReqMsg
 	for _, m := range msgs {
 		role := "user"
@@ -99,29 +102,52 @@ func (c *OpenAICompatChat) Chat(ctx context.Context, msgs []messages.Message) (*
 		if m.MessageType == messages.MessageTypeSystem { role = "system" }
 		oaiMsgs = append(oaiMsgs, oaiReqMsg{Role: role, Content: m.Content})
 	}
-
 	body, _ := json.Marshal(oaiReq{Model: c.Model, Messages: oaiMsgs})
-	httpReq, _ := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(body))
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
-	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.client.Do(httpReq)
+	// 带指数退避重试的 HTTP 调用
+	retryCfg := core.DefaultRetryConfig()
+	retryCfg.MaxRetries = 3
+	retryCfg.RetryableErr = func(err error) bool {
+		return err != nil && !strings.Contains(err.Error(), "status 4")
+	}
+
+	result, err := core.DoWithRetry(ctx, retryCfg, func(ctx context.Context) (*lm.LLMResult, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+		httpReq.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.client.Do(httpReq)
+		if err != nil {
+			return nil, fmt.Errorf("%s: request failed: %w", c.Model, err)
+		}
+		defer resp.Body.Close()
+
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("%s: read failed: %w", c.Model, err)
+		}
+
+		if resp.StatusCode != 200 {
+			return nil, fmt.Errorf("%s: status %d: %s", c.Model, resp.StatusCode, string(respBody))
+		}
+
+		var oai oaiResp
+		if err := json.Unmarshal(respBody, &oai); err != nil {
+			return nil, fmt.Errorf("%s: parse failed: %w", c.Model, err)
+		}
+		content := ""
+		if len(oai.Choices) > 0 {
+			content = oai.Choices[0].Message.Content
+		}
+		return &lm.LLMResult{Content: content, Model: oai.Model}, nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("%s: request failed: %w", c.Model, err)
+		return nil, err
 	}
-	defer resp.Body.Close()
-
-	respBody, _ := io.ReadAll(resp.Body)
-	var oai oaiResp
-	if err := json.Unmarshal(respBody, &oai); err != nil {
-		return nil, fmt.Errorf("%s: parse failed: %w", c.Model, err)
-	}
-
-	content := ""
-	if len(oai.Choices) > 0 {
-		content = oai.Choices[0].Message.Content
-	}
-	return &lm.LLMResult{Content: content, Model: oai.Model}, nil
+	return result, nil
 }
 
 func (c *OpenAICompatChat) StreamChat(ctx context.Context, msgs []messages.Message) (<-chan string, error) {

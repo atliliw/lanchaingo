@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/atliliw/lanchaingo/core"
 	lm "github.com/atliliw/lanchaingo/core/language_models"
 )
 
@@ -160,65 +161,57 @@ type streamChoice struct {
 
 func (c *OpenAIChat) Chat(ctx context.Context, messages []lm.Message) (*lm.LLMResult, error) {
 	req := c.buildRequest(messages, false)
-
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("openai: failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.config.BaseURL+"/chat/completions",
-		bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("openai: failed to create request: %w", err)
-	}
+	retryCfg := core.DefaultRetryConfig()
+	result, err := core.DoWithRetry(ctx, retryCfg, func(ctx context.Context) (*lm.LLMResult, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			c.config.BaseURL+"/chat/completions", bytes.NewReader(body))
+		if err != nil { return nil, fmt.Errorf("openai: failed to create request: %w", err) }
+		c.setHeaders(httpReq)
 
-	c.setHeaders(httpReq)
+		resp, err := c.client.Do(httpReq)
+		if err != nil { return nil, fmt.Errorf("openai: request failed: %w", err) }
+		defer resp.Body.Close()
 
-	resp, err := c.client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("openai: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("openai: API error (status %d): %s", resp.StatusCode, string(respBody))
-	}
-
-	var chatResp chatResponse
-	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
-		return nil, fmt.Errorf("openai: failed to decode response: %w", err)
-	}
-
-	if len(chatResp.Choices) == 0 {
-		return nil, fmt.Errorf("openai: empty response choices")
-	}
-
-	result := &lm.LLMResult{
-		Content: chatResp.Choices[0].Message.Content,
-		Model:   chatResp.Model,
-	}
-
-	if chatResp.Usage != nil {
-		result.TokenUsage = &lm.TokenUsage{
-			PromptTokens:     chatResp.Usage.PromptTokens,
-			CompletionTokens: chatResp.Usage.CompletionTokens,
-			TotalTokens:      chatResp.Usage.TotalTokens,
+		if resp.StatusCode != http.StatusOK {
+			respBody, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("openai: API error (status %d): %s", resp.StatusCode, string(respBody))
 		}
-	}
 
-	if toolCalls := chatResp.Choices[0].Message.ToolCalls; len(toolCalls) > 0 {
-		result.ToolCalls = make([]lm.ToolCall, len(toolCalls))
-		for i, tc := range toolCalls {
-			result.ToolCalls[i] = lm.ToolCall{
-				ID:        tc.ID,
-				Name:      tc.Function.Name,
-				Arguments: tc.Function.Arguments,
+		var chatResp chatResponse
+		if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
+			return nil, fmt.Errorf("openai: failed to decode response: %w", err)
+		}
+		if len(chatResp.Choices) == 0 {
+			return nil, fmt.Errorf("openai: empty response choices")
+		}
+
+		r := &lm.LLMResult{
+			Content: chatResp.Choices[0].Message.Content,
+			Model:   chatResp.Model,
+		}
+		if chatResp.Usage != nil {
+			r.TokenUsage = &lm.TokenUsage{
+				PromptTokens: chatResp.Usage.PromptTokens,
+				CompletionTokens: chatResp.Usage.CompletionTokens,
+				TotalTokens: chatResp.Usage.TotalTokens,
 			}
 		}
-	}
-
+		if toolCalls := chatResp.Choices[0].Message.ToolCalls; len(toolCalls) > 0 {
+			r.ToolCalls = make([]lm.ToolCall, len(toolCalls))
+			for i, tc := range toolCalls {
+				r.ToolCalls[i] = lm.ToolCall{
+					ID: tc.ID, Name: tc.Function.Name, Arguments: tc.Function.Arguments,
+				}
+			}
+		}
+		return r, nil
+	})
+	if err != nil { return nil, err }
 	return result, nil
 }
 

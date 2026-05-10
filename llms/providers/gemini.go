@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atliliw/lanchaingo/core"
 	lm "github.com/atliliw/lanchaingo/core/language_models"
 	"github.com/atliliw/lanchaingo/schema/messages"
 )
@@ -70,27 +71,34 @@ func (c *GeminiChat) Chat(ctx context.Context, msgs []messages.Message) (*lm.LLM
 	}
 
 	body, _ := json.Marshal(req)
-	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", c.BaseURL, c.Model, c.APIKey)
-	httpReq, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
-	httpReq.Header.Set("Content-Type", "application/json")
+	retryCfg := core.DefaultRetryConfig()
+	result, err := core.DoWithRetry(ctx, retryCfg, func(ctx context.Context) (*lm.LLMResult, error) {
+		url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", c.BaseURL, c.Model, c.APIKey)
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+		if err != nil { return nil, err }
+		httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("gemini: request failed: %w", err)
-	}
-	defer resp.Body.Close()
+		resp, err := c.client.Do(httpReq)
+		if err != nil { return nil, fmt.Errorf("gemini: request failed: %w", err) }
+		defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
-	var gr geminiResp
-	if err := json.Unmarshal(respBody, &gr); err != nil {
-		return nil, fmt.Errorf("gemini: parse failed: %w", err)
-	}
+		respBody, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != 200 {
+			return nil, fmt.Errorf("gemini: status %d: %s", resp.StatusCode, string(respBody))
+		}
 
-	content := ""
-	if len(gr.Candidates) > 0 && len(gr.Candidates[0].Content.Parts) > 0 {
-		content = gr.Candidates[0].Content.Parts[0].Text
-	}
-	return &lm.LLMResult{Content: content, Model: c.Model}, nil
+		var gr geminiResp
+		if err := json.Unmarshal(respBody, &gr); err != nil {
+			return nil, fmt.Errorf("gemini: parse failed: %w", err)
+		}
+		content := ""
+		if len(gr.Candidates) > 0 && len(gr.Candidates[0].Content.Parts) > 0 {
+			content = gr.Candidates[0].Content.Parts[0].Text
+		}
+		return &lm.LLMResult{Content: content, Model: c.Model}, nil
+	})
+	if err != nil { return nil, err }
+	return result, nil
 }
 
 func (c *GeminiChat) StreamChat(ctx context.Context, msgs []messages.Message) (<-chan string, error) {

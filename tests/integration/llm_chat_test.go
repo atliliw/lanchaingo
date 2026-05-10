@@ -21,7 +21,8 @@ import (
 
 // 娴嬭瘯 Qwen-Plus 鍩虹瀵硅瘽鍔熻兘
 //
-// 娴嬭瘯鍦烘櫙锛氬彂閫佷竴鏉＄畝鍗曠殑浜虹被娑堟伅锛岄獙璇?LLM 鑳借繑鍥為潪绌哄搷搴?// 浣跨敤妯″瀷锛歲wen-plus锛堥樋閲岄€氫箟鍗冮棶锛?func TestQwenChatBasic(t *testing.T) {
+// 娴嬭瘯鍦烘櫙锛氬彂閫佷竴鏉＄畝鍗曠殑浜虹被娑堟伅锛岄獙璇?LLM 鑳借繑鍥為潪绌哄搷搴?// 浣跨敤妯″瀷锛歲wen-plus锛堥樋閲岄€氫箟鍗冮棶锛?
+func TestQwenChatBasic(t *testing.T) {
 	cfg := LoadConfig()
 	if !cfg.HasAPIKey() {
 		t.Skip("璺宠繃闆嗘垚娴嬭瘯锛氭湭閰嶇疆 API Key")

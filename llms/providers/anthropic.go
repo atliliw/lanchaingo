@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atliliw/lanchaingo/core"
 	lm "github.com/atliliw/lanchaingo/core/language_models"
 	"github.com/atliliw/lanchaingo/schema/messages"
 )
@@ -72,28 +73,33 @@ func (c *AnthropicChat) Chat(ctx context.Context, msgs []messages.Message) (*lm.
 	}
 
 	body, _ := json.Marshal(req)
-	httpReq, _ := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/messages", bytes.NewReader(body))
-	httpReq.Header.Set("x-api-key", c.APIKey)
-	httpReq.Header.Set("anthropic-version", "2023-06-01")
-	httpReq.Header.Set("Content-Type", "application/json")
+	retryCfg := core.DefaultRetryConfig()
+	result, err := core.DoWithRetry(ctx, retryCfg, func(ctx context.Context) (*lm.LLMResult, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/messages", bytes.NewReader(body))
+		if err != nil { return nil, err }
+		httpReq.Header.Set("x-api-key", c.APIKey)
+		httpReq.Header.Set("anthropic-version", "2023-06-01")
+		httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("anthropic: request failed: %w", err)
-	}
-	defer resp.Body.Close()
+		resp, err := c.client.Do(httpReq)
+		if err != nil { return nil, fmt.Errorf("anthropic: request failed: %w", err) }
+		defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
-	var ar anthropicResp
-	if err := json.Unmarshal(respBody, &ar); err != nil {
-		return nil, fmt.Errorf("anthropic: parse failed: %w", err)
-	}
+		respBody, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != 200 {
+			return nil, fmt.Errorf("anthropic: status %d: %s", resp.StatusCode, string(respBody))
+		}
 
-	content := ""
-	if len(ar.Content) > 0 {
-		content = ar.Content[0].Text
-	}
-	return &lm.LLMResult{Content: content, Model: ar.Model}, nil
+		var ar anthropicResp
+		if err := json.Unmarshal(respBody, &ar); err != nil {
+			return nil, fmt.Errorf("anthropic: parse failed: %w", err)
+		}
+		content := ""
+		if len(ar.Content) > 0 { content = ar.Content[0].Text }
+		return &lm.LLMResult{Content: content, Model: ar.Model}, nil
+	})
+	if err != nil { return nil, err }
+	return result, nil
 }
 
 func (c *AnthropicChat) StreamChat(ctx context.Context, msgs []messages.Message) (<-chan string, error) {

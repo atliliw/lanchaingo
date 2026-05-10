@@ -2,7 +2,8 @@ package vector_stores
 
 import "testing"
 
-// 娴嬭瘯 InMemoryVectorStore 娣诲姞鍜屾悳绱?func TestAddAndSearch(t *testing.T) {
+// 娴嬭瘯 InMemoryVectorStore 娣诲姞鍜屾悳绱?
+func TestAddAndSearch(t *testing.T) {
 	s := NewInMemoryVectorStore()
 
 	docs := []Document{
