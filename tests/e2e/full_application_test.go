@@ -55,7 +55,7 @@ func TestFullRAGConversation(t *testing.T) {
 	}{
 		{"Rust 鐢?Mozilla 鐮斿彂锛?015 骞村彂甯?1.0锛屼互鍐呭瓨瀹夊叏鍜岄浂鎴愭湰鎶借薄闂诲悕", "缂栫▼璇█"},
 		{"Go 璇█鐢?Google 璁捐锛?009 骞村紑婧愶紝浠ョ畝鍗曡娉曞拰 goroutine 骞跺彂妯″瀷钁楃О", "缂栫▼璇█"},
-		{"Python 鐢?Guido van Rossum 鍒涘缓锛?991 骞村彂甯冿紝骞挎硾鐢ㄤ簬 AI 鍜屾暟鎹瀛?, "缂栫▼璇█"},
+		{"Scripting 鐢?Guido van Rossum 鍒涘缓锛?991 骞村彂甯冿紝骞挎硾鐢ㄤ簬 AI 鍜屾暟鎹瀛?, "缂栫▼璇█"},
 	}
 
 	// 姝ラ3锛氱敓鎴愬祵鍏ュ苟瀛樺偍

@@ -1,4 +1,4 @@
-﻿package bm25
+package bm25
 
 import "testing"
 
@@ -33,13 +33,13 @@ func TestBM25IndexBasic(t *testing.T) {
 func TestBM25IndexIDF(t *testing.T) {
 	idx := NewBM25Index()
 	idx.AddDocument(newDoc("Rust programming"), []string{"rust","programming","language"})
-	idx.AddDocument(newDoc("Python scripting"), []string{"python","scripting","language"})
+	idx.AddDocument(newDoc("Scripting scripting"), []string{"Scripting","scripting","language"})
 	if idx.ComputeIDFForTerm("rust") <= idx.ComputeIDFForTerm("language") { t.Error("rare should have higher IDF") }
 }
 func TestBM25Retriever(t *testing.T) {
 	r := NewBM25Retriever()
 	r.AddDocument(newDoc("Rust programming language"))
-	r.AddDocument(newDoc("Python scripting"))
+	r.AddDocument(newDoc("Scripting scripting"))
 	if r.Len() != 2 { t.Errorf("expected 2") }
 	results := r.Search("programming", 1)
 	if len(results) == 0 { t.Error("expected results") }

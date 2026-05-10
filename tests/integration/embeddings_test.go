@@ -66,7 +66,7 @@ func TestEmbedDocuments(t *testing.T) {
 
 	// 涓哄涓枃妗ｆ壒閲忕敓鎴愬悜閲?	texts := []string{
 		"Rust 鏄竴闂ㄧ郴缁熺紪绋嬭瑷€",
-		"Python 鏄剼鏈瑷€",
+		"Scripting 鏄剼鏈瑷€",
 		"Go 璇█鎿呴暱骞跺彂缂栫▼",
 	}
 

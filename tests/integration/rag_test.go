@@ -34,7 +34,7 @@ func TestRAGPipeline(t *testing.T) {
 	// 姝ラ1锛氬噯澶囨枃妗ｂ€斺€斾笁涓富棰樺悇寮傜殑鏂囨。鐢ㄤ簬楠岃瘉妫€绱㈠噯纭€?	docs := []vs.Document{
 		vs.NewDocument("Rust 鏄竴闂ㄧ郴缁熺紪绋嬭瑷€锛屾敞閲嶅唴瀛樺畨鍏ㄥ拰骞跺彂鎬ц兘锛岀敱 Mozilla 寮€鍙?).
 			WithMetadata("source", "doc1"),
-		vs.NewDocument("Python 鏄竴绉嶈В閲婂瀷楂樼骇缂栫▼璇█锛岃娉曠畝娲侊紝閫傚悎蹇€熷紑鍙戝拰鏁版嵁绉戝").
+		vs.NewDocument("Scripting 鏄竴绉嶈В閲婂瀷楂樼骇缂栫▼璇█锛岃娉曠畝娲侊紝閫傚悎蹇€熷紑鍙戝拰鏁版嵁绉戝").
 			WithMetadata("source", "doc2"),
 		vs.NewDocument("Go 璇█鐢?Google 寮€鍙戯紝浠ョ畝娲佺殑璇硶鍜屽己澶х殑骞跺彂妯″瀷钁楃О").
 			WithMetadata("source", "doc3"),
@@ -79,7 +79,7 @@ func TestRAGPipeline(t *testing.T) {
 		}
 	})
 
-	t.Run("妫€绱?Python 鐩稿叧鏂囨。", func(t *testing.T) {
+	t.Run("妫€绱?Scripting 鐩稿叧鏂囨。", func(t *testing.T) {
 		results, err := retriever.RetrieveWithScores("鏁版嵁绉戝 鑴氭湰璇█", 2)
 		if err != nil {
 			t.Fatalf("妫€绱㈠け璐? %v", err)

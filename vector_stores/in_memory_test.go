@@ -1,10 +1,10 @@
-﻿package vector_stores
+package vector_stores
 
 import "testing"
 
 func TestAddAndSearch(t *testing.T) {
 	s := NewInMemoryVectorStore()
-	docs := []Document{NewDocument("Rust programming"), NewDocument("Python scripting")}
+	docs := []Document{NewDocument("Rust programming"), NewDocument("Scripting scripting")}
 	embeddings := [][]float32{{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}}
 	ids, err := s.AddDocuments(docs, embeddings)
 	if err != nil { t.Fatalf("unexpected error: %v", err) }
