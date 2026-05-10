@@ -34,3 +34,6 @@ config/config.toml
 
 # Rust source (reference only)
 /langchainrust/
+
+# Plan document (internal only)
+PLAN.md
