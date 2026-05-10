@@ -37,3 +37,6 @@ config/config.toml
 
 # Plan document (internal only)
 PLAN.md
+
+# Sisyphus workspace
+.sisyphus/
