@@ -124,6 +124,10 @@ func (g *StateGraph) Compile() (*CompiledGraph, error) {
 		recursionLimit: 25,
 	}
 
+	if err := cg.validateSubgraphCycles(); err != nil {
+		return nil, err
+	}
+
 	if err := cg.validate(); err != nil {
 		return nil, err
 	}
@@ -151,4 +155,29 @@ func copyRouters(src map[string]ConditionalRouter) map[string]ConditionalRouter 
 		dst[k] = v
 	}
 	return dst
+}
+
+// validateSubgraphCycles checks that no subgraph in this compiled graph
+// creates a recursive cycle (A contains B contains A). Uses pointer
+// identity of CompiledGraph instances for cycle detection.
+func (cg *CompiledGraph) validateSubgraphCycles() error {
+	visiting := make(map[*CompiledGraph]bool)
+	return cg.detectSubgraphCycle(visiting)
+}
+
+func (cg *CompiledGraph) detectSubgraphCycle(visiting map[*CompiledGraph]bool) error {
+	if visiting[cg] {
+		return NewGraphError(ErrSubgraphCycle, "detected recursive subgraph cycle", nil)
+	}
+	visiting[cg] = true
+	defer delete(visiting, cg)
+
+	for _, node := range cg.nodes {
+		if sn, ok := node.(*SubgraphNode); ok {
+			if err := sn.subgraph.detectSubgraphCycle(visiting); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

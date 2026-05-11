@@ -1,6 +1,7 @@
 package langgraph
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 )
@@ -254,6 +255,15 @@ func (cg *CompiledGraph) invokeFrom(input StateSchema, startNode string, startRe
 
 		update, err := node.Execute(state)
 		if err != nil {
+			var siErr *SubgraphInterruptError
+			if errors.As(err, &siErr) {
+				return &GraphInvocationResult{
+					FinalState:     siErr.PartialState,
+					RecursionCount: recursions,
+					Interrupted:    true,
+					InterruptedAt:  siErr.InterruptedAt,
+				}, nil
+			}
 			return nil, NewGraphError(ErrExecution, fmt.Sprintf("node '%s' failed: %v", current, err), err)
 		}
 
